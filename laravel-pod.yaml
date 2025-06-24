@@ -16,6 +16,6 @@ spec:
         - name: MYSQL_DATABASE
           value: rompheu-db
         - name: MYSQL_ROOT_PASSWORD
-          value: Hello@123
+          value: Hello@123   #Password
       ports:
         - containerPort: 3306

@@ -2,20 +2,42 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
-class AppServiceProvider extends ServiceProvider
+// Add your models and policies here
+use App\Models\Terrain;
+use App\Models\TerrainImage;
+use App\Models\Booking;
+use App\Models\Payment;
+use App\Models\Review;
+use App\Models\Favorite;
+
+use App\Policies\TerrainPolicy;
+use App\Policies\TerrainImagePolicy;
+use App\Policies\BookingPolicy;
+use App\Policies\PaymentPolicy;
+use App\Policies\ReviewPolicy;
+use App\Policies\FavoritePolicy;
+
+class AuthServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
+     * The policy mappings for the application.
+     *
+     * @var array<class-string, class-string>
      */
-    public function register(): void
-    {
-        //
-    }
+    protected $policies = [
+        Terrain::class => TerrainPolicy::class,
+        TerrainImage::class => TerrainImagePolicy::class,
+        Booking::class => BookingPolicy::class,
+        Payment::class => PaymentPolicy::class,
+        Review::class => ReviewPolicy::class,
+        Favorite::class => FavoritePolicy::class,
+    ];
 
     /**
-     * Bootstrap any application services.
+     * Register any authentication / authorization services.
      */
     public function boot(): void
     {

@@ -3,44 +3,51 @@ pipeline {
 
     environment {
         EMAIL_RECIPIENT = "rompher2609@gmail.com"
-        // You can add more env variables here
+    }
+
+    options {
+        // Keep only last 10 builds
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     triggers {
-        // Keep only last 10 builds to save space
-        // buildDiscarder(logRotator(numToKeepStr: '10'))
-        // Poll every 5 minutes
+        // Poll Git repo every 5 minutes
         pollSCM('H/5 * * * *')
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Checkout from GitHub
                 checkout scm
+            }
+        }
+
+        stage('Prepare Laravel Environment') {
+            steps {
+                sh '''
+                    cp .env.example .env || true
+                    php artisan key:generate || true
+                '''
             }
         }
 
         stage('Build & Test') {
             steps {
-                // Run your build commands (e.g. composer install, npm build, tests)
                 sh '''
-                   cd ansible
-                   ansible-playbook -i inventory.ini playbook.yml --list-tasks
-                   cd ..
-                   cd ansible
-                   ansible-playbook -i inventory.ini playbook.yml
-                   cd ..
+                    cd ansible
+                    ansible-playbook -i inventory.ini playbook.yml --list-tasks
+                    ansible-playbook -i inventory.ini playbook.yml
+                    cd ..
                 '''
             }
         }
 
+        // Uncomment this block if you separate build/test and deployment
         // stage('Deploy') {
         //     when {
         //         expression { currentBuild.currentResult == 'SUCCESS' }
         //     }
         //     steps {
-        //         // Run ansible playbook to deploy
         //         sh 'ansible-playbook -i ansible/inventory.ini ansible/playbook.yml'
         //     }
         // }
@@ -49,18 +56,18 @@ pipeline {
     post {
         failure {
             script {
-                def culpritEmail = currentBuild.rawBuild.getCause(hudson.model.Culprit).getEmail()
-                emailext (
-                    subject: "Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """Build failed.
+                def committer = sh(script: "git log -1 --pretty=format:'%ae'", returnStdout: true).trim()
+                emailext(
+                    subject: "❌ Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """❌ Jenkins build failed.
 
 Project: ${env.JOB_NAME}
 Build Number: ${env.BUILD_NUMBER}
-Check console output at ${env.BUILD_URL}
+Build URL: ${env.BUILD_URL}
 
-Culprit: ${culpritEmail ?: 'unknown'}
+Committer: ${committer}
 """,
-                    to: "${EMAIL_RECIPIENT}, ${culpritEmail ?: ''}",
+                    to: "${EMAIL_RECIPIENT}, ${committer}",
                     from: "jenkins@example.com"
                 )
             }

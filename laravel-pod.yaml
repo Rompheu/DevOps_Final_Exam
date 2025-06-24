@@ -1,0 +1,21 @@
+# laravel-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: laravel-pod
+spec:
+  containers:
+    - name: laravel-web
+      image: rompheu/laravel-web:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 8080
+    - name: mysql-db
+      image: mysql:8.0
+      env:
+        - name: MYSQL_DATABASE
+          value: rompheu-db
+        - name: MYSQL_ROOT_PASSWORD
+          value: Hello@123
+      ports:
+        - containerPort: 3306

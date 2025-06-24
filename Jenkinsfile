@@ -6,9 +6,9 @@ pipeline {
         // You can add more env variables here
     }
 
-    options {
+    triggers {
         // Keep only last 10 builds to save space
-        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // buildDiscarder(logRotator(numToKeepStr: '10'))
         // Poll every 5 minutes
         pollSCM('H/5 * * * *')
     }

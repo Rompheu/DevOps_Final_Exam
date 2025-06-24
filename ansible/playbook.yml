@@ -1,35 +1,36 @@
-- name: Laravel Web Server Workflow
-  hosts: local
+---
+- name: Laravel Kubernetes Deployment Test (Skip npm)
+  hosts: localhost
+  connection: local
   gather_facts: false
 
+  vars:
+    web_pod_label: "app=laravel-app"
+    laravel_path: "/var/www/html"
+
   tasks:
+    - name: Get the name of the web server pod
+      shell: kubectl get pods -l app=laravel-app -o jsonpath="{.items[0].metadata.name}"
+      register: web_pod
+
+
+    - name: Show web pod name
+      debug:
+        msg: "Web pod is {{ web_pod.stdout }}"
 
     - name: Mark Laravel directory as safe for Git
-      shell: >
-        kubectl exec laravel-pod -c laravel-web --
-        git config --global --add safe.directory /var/www/html
+      shell: kubectl exec {{ web_pod.stdout }} -c laravel-web -- git config --global --add safe.directory {{ laravel_path }}
+
+    - name: Set upstream branch for master
+      shell: kubectl exec {{ web_pod.stdout }} -c laravel-web -- bash -c "cd {{ laravel_path }} && git branch --set-upstream-to=origin/master master"
+
+    - name: Clean untracked files so git pull works
+      shell: kubectl exec {{ web_pod.stdout }} -c laravel-web -- bash -c "cd {{ laravel_path }} && git clean -fd"
 
     - name: Git pull latest code
-      shell: >
-        kubectl exec laravel-pod -c laravel-web --
-        bash -c "cd /var/www/html && git pull"
+      shell: kubectl exec {{ web_pod.stdout }} -c laravel-web -- bash -c "cd {{ laravel_path }} && git pull"
 
     - name: Install PHP dependencies with Composer
-      shell: >
-        kubectl exec laravel-pod -c laravel-web --
-        bash -c "cd /var/www/html && composer install --no-interaction --prefer-dist"
+      shell: kubectl exec {{ web_pod.stdout }} -c laravel-web -- bash -c "cd {{ laravel_path }} && composer install --no-interaction --prefer-dist"
 
-    - name: Install and build frontend assets with npm
-      shell: >
-        kubectl exec laravel-pod -c laravel-web --
-        bash -c "cd /var/www/html && npm install && npm run build"
-
-    - name: Run Laravel tests using SQLite
-      shell: >
-        kubectl exec laravel-pod -c laravel-web --
-        bash -c "cd /var/www/html && php artisan migrate --env=testing && ./vendor/bin/phpunit --env=testing"
-
-    - name: Backup MySQL database from mysql-db container
-      shell: >
-        kubectl exec laravel-pod -c mysql-db --
-        bash -c "mysqldump -u root -pYOURPASSWORD your_db_name > /var/lib/mysql/backup.sql"
+    

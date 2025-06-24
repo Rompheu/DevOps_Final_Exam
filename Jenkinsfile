@@ -2,65 +2,66 @@ pipeline {
     agent any
 
     environment {
-        EMAIL_RECIPIENTS = 'srengty@gmail.com'
+        EMAIL_RECIPIENT = "rompher2609@gmail.com"
+        // You can add more env variables here
     }
 
-    triggers {
-        // Poll Git every 5 minutes
+    options {
+        // Keep only last 10 builds to save space
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // Poll every 5 minutes
         pollSCM('H/5 * * * *')
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
+                // Checkout from GitHub
                 checkout scm
             }
         }
 
-        stage('Install Composer Dependencies') {
+        stage('Build & Test') {
             steps {
-                sh 'composer install --no-interaction --prefer-dist'
+                // Run your build commands (e.g. composer install, npm build, tests)
+                sh '''
+                   cd ansible
+                   ansible-playbook -i inventory.ini playbook.yml --list-tasks
+                   cd ..
+                   cd ansible
+                   ansible-playbook -i inventory.ini playbook.yml
+                   cd ..
+                '''
             }
         }
 
-        stage('Install Node Modules') {
-            steps {
-                sh 'npm install'
-            }
-        }
-
-        stage('Run Laravel Tests') {
-            steps {
-                sh './vendor/bin/phpunit'
-            }
-        }
-
-        stage('Deploy with Ansible') {
-            steps {
-                // Runs Ansible playbook if all previous steps succeeded
-                sh 'ansible-playbook ansible/playbook.yml'
-            }
-        }
+        // stage('Deploy') {
+        //     when {
+        //         expression { currentBuild.currentResult == 'SUCCESS' }
+        //     }
+        //     steps {
+        //         // Run ansible playbook to deploy
+        //         sh 'ansible-playbook -i ansible/inventory.ini ansible/playbook.yml'
+        //     }
+        // }
     }
 
     post {
         failure {
             script {
-                def committer = sh(
-                    script: "git log -1 --pretty=format:'%ae'",
-                    returnStdout: true
-                ).trim()
+                def culpritEmail = currentBuild.rawBuild.getCause(hudson.model.Culprit).getEmail()
+                emailext (
+                    subject: "Build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """Build failed.
 
-                emailext(
-                    subject: "❌ Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                        The build for ${env.JOB_NAME} #${env.BUILD_NUMBER} has failed.
+Project: ${env.JOB_NAME}
+Build Number: ${env.BUILD_NUMBER}
+Check console output at ${env.BUILD_URL}
 
-                        Check the logs: ${env.BUILD_URL}
-
-                        Please fix it ASAP!
-                    """,
-                    to: "${committer}, ${env.EMAIL_RECIPIENTS}"
+Culprit: ${culpritEmail ?: 'unknown'}
+""",
+                    to: "${EMAIL_RECIPIENT}, ${culpritEmail ?: ''}",
+                    from: "jenkins@example.com"
                 )
             }
         }

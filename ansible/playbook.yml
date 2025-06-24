@@ -1,0 +1,35 @@
+- name: Laravel Web Server Workflow
+  hosts: local
+  gather_facts: false
+
+  tasks:
+
+    - name: Mark Laravel directory as safe for Git
+      shell: >
+        kubectl exec laravel-pod -c laravel-web --
+        git config --global --add safe.directory /var/www/html
+
+    - name: Git pull latest code
+      shell: >
+        kubectl exec laravel-pod -c laravel-web --
+        bash -c "cd /var/www/html && git pull"
+
+    - name: Install PHP dependencies with Composer
+      shell: >
+        kubectl exec laravel-pod -c laravel-web --
+        bash -c "cd /var/www/html && composer install --no-interaction --prefer-dist"
+
+    - name: Install and build frontend assets with npm
+      shell: >
+        kubectl exec laravel-pod -c laravel-web --
+        bash -c "cd /var/www/html && npm install && npm run build"
+
+    - name: Run Laravel tests using SQLite
+      shell: >
+        kubectl exec laravel-pod -c laravel-web --
+        bash -c "cd /var/www/html && php artisan migrate --env=testing && ./vendor/bin/phpunit --env=testing"
+
+    - name: Backup MySQL database from mysql-db container
+      shell: >
+        kubectl exec laravel-pod -c mysql-db --
+        bash -c "mysqldump -u root -pYOURPASSWORD your_db_name > /var/lib/mysql/backup.sql"
